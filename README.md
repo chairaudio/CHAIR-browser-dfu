@@ -38,15 +38,7 @@ don't want to publish through the manifest for a given build.
 
 ### Deploying to GitHub Pages
 
-Use a dedicated (public) repo for this site — don't reuse your private
-firmware source repo, so nothing beyond the updater and its releases is
-reachable. Push this folder's contents to that repo, then in the repo's
-Settings → Pages, set Source to "Deploy from a branch" and pick the branch
-(and `/root` or `/docs`, whichever you pushed to). The site is served at
-`https://<owner>.github.io/<repo>/`.
-
-Repo size will grow as `.bin` files accumulate — prune old releases from
-`releases/` (and rerun the manifest script) periodically if that matters.
+This repo is served as a public github page at [https://chairaudio.github.io/CHAIR-browser-dfu/](https://chairaudio.github.io/CHAIR-browser-dfu/).
 
 ## Calibration data protection
 
