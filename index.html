@@ -120,6 +120,8 @@
   .hidden { display: none !important; }
   details summary { cursor: pointer; font-size: 13px; color: var(--muted); }
   code { font-family: var(--mono); background: var(--panel2); padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+  a { color: var(--accent); }
+  a:hover { color: var(--accent2); }
   .steps { margin: 0; padding-left: 20px; font-size: 12px; color: var(--muted); line-height: 1.6; }
   .steps li { margin-bottom: 6px; }
   .steps li:last-child { margin-bottom: 0; }
@@ -171,8 +173,10 @@
 
   <div class="panel">
     <h2>3 · Firmware source</h2>
-
-    <div class="row">
+    <div class="note" style="margin-top:0;"> 
+      Please select a firmware version from the list below. 
+    </div>
+    <div class="row" style="margin-top:10px;">
       <button id="btnRefreshReleases">Refresh available releases</button>
       <span id="releasesStatus" class="note" style="margin:0;"></span>
     </div>
@@ -199,15 +203,15 @@
       <button id="btnConnect">Connect device</button>
       <button id="btnDisconnect" class="secondary" disabled>Disconnect</button>
     </div>
-    <div class="note">
-      Flash pages are always erased before writing. Calibration data stored from page 253 onward is
-      never touched — flashing is blocked automatically if a firmware image would reach that far.
-    </div>
   </div>
 
   <div class="panel">
     <h2>5 · Update</h2>
-    <div class="row">
+    <div class="note">
+      Your personal settings and calibration parameters will persist after the update. You can safely update. In the unlikely case that something went wrong, please consult section 7.3 Troubleshooting in the
+      <a href="https://discourse.chair.audio/t/analog-waveguide-manual/177" target="_blank" rel="noopener">user manual</a>.
+    </div>
+    <div class="row" style="margin-top:10px;">
       <button id="btnFlash" disabled>Flash firmware</button>
     </div>
     <div class="progress-outer"><div class="progress-inner" id="progressBar"></div></div>
