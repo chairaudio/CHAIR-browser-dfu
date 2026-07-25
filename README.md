@@ -39,6 +39,7 @@ don't want to publish through the manifest for a given build.
 ### Deploying to GitHub Pages
 
 This repo is served as a public github page at [https://chairaudio.github.io/CHAIR-browser-dfu/](https://chairaudio.github.io/CHAIR-browser-dfu/).
+This tool needs WebUSB, available in Chrome, Edge, and other Chromium-based browsers (not Firefox or Safari).
 
 ## Calibration data protection
 
