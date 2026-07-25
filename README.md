@@ -53,7 +53,7 @@ client-facing and shouldn't ask anyone to touch DFU internals). The updater:
   silently corrupts the image (this bit us in testing — corrupted the vector
   table and left the device stuck in the bootloader).
 - Computes how many flash pages the firmware image needs from `PAGE_SIZE`
-  (2048 bytes, correct for the STM32G474's 2KB pages) and only erases pages
+  and only erases pages
   `0` through `neededPages - 1`.
 - Refuses to erase or write at all if the image would reach `RESERVED_PAGE`
   (253) or beyond.
