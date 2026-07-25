@@ -1,15 +1,5 @@
 [
   {
-    "name": "Analog-Waveguide-v1.0.2.bin",
-    "size": 184168,
-    "mtime": 1784984409965
-  },
-  {
-    "name": "Analog-Waveguide-v1.0.1.bin",
-    "size": 186688,
-    "mtime": 1784984402768
-  },
-  {
     "name": "Analog-Waveguide_v1.2.3.bin",
     "size": 179992,
     "mtime": 1774212534964
@@ -35,19 +25,29 @@
     "mtime": 1772048662067
   },
   {
-    "name": "Analog-Waveguide_v1.0.5.bin",
-    "size": 184240,
-    "mtime": 1771958588083
-  },
-  {
     "name": "Analog-Waveguide_v1.1.0-beta.bin",
     "size": 168112,
     "mtime": 1771830502677
   },
   {
+    "name": "Analog-Waveguide_v1.0.5.bin",
+    "size": 184240,
+    "mtime": 1771958588083
+  },
+  {
     "name": "Analog-Waveguide_v1.0.4.bin",
     "size": 184240,
     "mtime": 1770815379555
+  },
+  {
+    "name": "Analog-Waveguide-v1.0.2.bin",
+    "size": 184168,
+    "mtime": 1784984409965
+  },
+  {
+    "name": "Analog-Waveguide-v1.0.1.bin",
+    "size": 186688,
+    "mtime": 1784984402768
   },
   {
     "name": "Analog-Waveguide-v0.0.8.bin",
