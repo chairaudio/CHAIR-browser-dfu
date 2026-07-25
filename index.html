@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Center for Haptic Audio Interaction Research — Firmware Updater</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #171a21;
+    --panel2: #1e222b;
+    --border: #2a2f3a;
+    --text: #e6e8ec;
+    --muted: #8a90a0;
+    --accent: #4f8cff;
+    --accent2: #2f6fe0;
+    --good: #3ecf8e;
+    --warn: #e0a63e;
+    --bad: #e05a4f;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    padding: 32px 16px 64px;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin-bottom: 28px; }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+  .panel h2 {
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+    margin: 0 0 14px;
+  }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+  .row:last-child { margin-bottom: 0; }
+  label { font-size: 13px; color: var(--muted); min-width: 120px; }
+  input[type=text], input[type=password], input[type=number], select {
+    background: var(--panel2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: 13px;
+    font-family: var(--mono);
+    flex: 1;
+    min-width: 120px;
+  }
+  input[type=file] { color: var(--muted); font-size: 13px; }
+  button {
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 9px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button:hover { background: var(--accent2); }
+  button:disabled { background: var(--panel2); color: var(--muted); cursor: not-allowed; }
+  button.secondary { background: var(--panel2); border: 1px solid var(--border); }
+  button.secondary:hover { background: #262b36; }
+  .pill {
+    display: inline-block;
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-family: var(--mono);
+  }
+  .pill.ok { background: rgba(62,207,142,0.15); color: var(--good); }
+  .pill.warn { background: rgba(224,166,62,0.15); color: var(--warn); }
+  .pill.bad { background: rgba(224,90,79,0.15); color: var(--bad); }
+  .pill.neutral { background: rgba(138,144,160,0.15); color: var(--muted); }
+  .asset-list { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+  .asset {
+    display: flex; justify-content: space-between; align-items: center;
+    background: var(--panel2); border: 1px solid var(--border); border-radius: 6px;
+    padding: 8px 12px; font-size: 13px; cursor: pointer;
+  }
+  .asset:hover { border-color: var(--accent); }
+  .asset.selected { border-color: var(--accent); background: rgba(79,140,255,0.08); }
+  .asset .name { font-family: var(--mono); }
+  .asset .size { color: var(--muted); font-size: 12px; }
+  .progress-outer {
+    background: var(--panel2); border-radius: 6px; height: 10px; overflow: hidden; margin: 12px 0;
+    border: 1px solid var(--border);
+  }
+  .progress-inner { background: var(--accent); height: 100%; width: 0%; transition: width 0.15s; }
+  .log {
+    background: #0b0d11; border: 1px solid var(--border); border-radius: 6px;
+    padding: 10px 12px; font-family: var(--mono); font-size: 12px; color: var(--muted);
+    max-height: 220px; overflow-y: auto; white-space: pre-wrap; line-height: 1.5;
+  }
+  .log .ok { color: var(--good); }
+  .log .err { color: var(--bad); }
+  .log .warn { color: var(--warn); }
+  .note { font-size: 12px; color: var(--muted); margin-top: 8px; line-height: 1.5; }
+  .status-line { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; font-size: 13px; }
+  .hidden { display: none !important; }
+  details summary { cursor: pointer; font-size: 13px; color: var(--muted); }
+  code { font-family: var(--mono); background: var(--panel2); padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>The Center for Haptic Audio Interaction Research — Firmware Updater</h1>
+  <div class="sub">WebUSB DFU flashing tool. Runs entirely in the browser — nothing is uploaded anywhere.</div>
+
+  <div id="unsupported" class="panel hidden">
+    <h2>Unsupported browser</h2>
+    <div class="note">
+      This tool needs <strong>WebUSB</strong>, available in Chrome, Edge, and other Chromium-based browsers
+      (not Firefox or Safari). It also needs a secure context — this page must be served over
+      <code>https://</code> or <code>http://localhost</code> (GitHub Pages serves HTTPS by default).
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>1 · Firmware source</h2>
+
+    <div class="row">
+      <button id="btnRefreshReleases">Refresh available releases</button>
+      <span id="releasesStatus" class="note" style="margin:0;"></span>
+    </div>
+    <div id="assetList" class="asset-list"></div>
+
+    <details style="margin-top:14px;">
+      <summary>…or upload a .bin file</summary>
+      <div class="row" style="margin-top:10px;">
+        <input type="file" id="manualFile" accept=".bin,.dfu">
+      </div>
+    </details>
+
+    <div id="fileInfo" class="note hidden" style="margin-top:10px;"></div>
+    <div id="eraseInfo" class="note hidden"></div>
+  </div>
+
+  <div class="panel">
+    <h2>2 · Device</h2>
+    <div class="status-line">
+      <span id="devPill" class="pill neutral">not connected</span>
+      <span id="devDetail" class="note" style="margin:0;"></span>
+    </div>
+    <div class="row">
+      <button id="btnConnect">Connect device</button>
+      <button id="btnDisconnect" class="secondary" disabled>Disconnect</button>
+    </div>
+    <div class="note">
+      Flash pages are always erased before writing. Calibration data stored from page 253 onward is
+      never touched — flashing is blocked automatically if a firmware image would reach that far.
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>3 · Update</h2>
+    <div class="row">
+      <button id="btnFlash" disabled>Flash firmware</button>
+    </div>
+    <div class="progress-outer"><div class="progress-inner" id="progressBar"></div></div>
+    <div class="log" id="log">Ready.</div>
+  </div>
+
+  <div class="note">
+    No live firmware-version check is performed — the module's DFU bootloader doesn't report an application
+    version, so there's nothing to compare against automatically. Confirm you're flashing the right release
+    before starting.
+  </div>
+</div>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const els = {
+    unsupported: $('unsupported'),
+    btnRefreshReleases: $('btnRefreshReleases'), releasesStatus: $('releasesStatus'),
+    assetList: $('assetList'),
+    manualFile: $('manualFile'), fileInfo: $('fileInfo'), eraseInfo: $('eraseInfo'),
+    devPill: $('devPill'), devDetail: $('devDetail'),
+    btnConnect: $('btnConnect'), btnDisconnect: $('btnDisconnect'),
+    btnFlash: $('btnFlash'),
+    progressBar: $('progressBar'), log: $('log'),
+  };
+
+  // Fixed device/flash parameters. Not exposed in the client-facing UI —
+  // 0483:df11 is the STM32 built-in DFU bootloader, 0x08000000 is the flash
+  // base for this module, page size 2048B matches the STM32G474's 2KB pages,
+  // and page 253 onward holds calibration data that must never be touched.
+  const VID = 0x0483;
+  const PID = 0xdf11;
+  const FLASH_ADDR = 0x08000000;
+  const PAGE_SIZE = 2048;
+  const RESERVED_PAGE = 253;
+
+  let firmwareBuffer = null;   // ArrayBuffer of the selected .bin (suffix stripped)
+  let firmwareSuffix = null;   // parsed DFU suffix info, if present
+  let firmwareLabel = '';
+  let dfu = null;              // DfuDevice instance once connected
+
+  function log(msg, cls) {
+    const line = document.createElement('div');
+    if (cls) line.className = cls;
+    line.textContent = msg;
+    els.log.appendChild(line);
+    els.log.scrollTop = els.log.scrollHeight;
+  }
+  function setProgress(pct) { els.progressBar.style.width = Math.max(0, Math.min(100, pct)) + '%'; }
+
+  // ---------- feature detection ----------
+  if (!('usb' in navigator)) {
+    els.unsupported.classList.remove('hidden');
+    [els.btnConnect, els.btnRefreshReleases].forEach(b => b.disabled = true);
+  }
+
+  // ---------- DFU suffix parsing (16-byte trailer added by dfu-util's dfu-suffix) ----------
+  function parseDfuSuffix(buffer) {
+    if (buffer.byteLength < 16) return null;
+    const view = new DataView(buffer, buffer.byteLength - 16, 16);
+    const sig = String.fromCharCode(view.getUint8(8), view.getUint8(9), view.getUint8(10));
+    const bLength = view.getUint8(11);
+    if (sig !== 'UFD' || bLength !== 16) return null;
+    return {
+      bcdDevice: view.getUint16(0, true),
+      idProduct: view.getUint16(2, true),
+      idVendor: view.getUint16(4, true),
+      bcdDFU: view.getUint16(6, true),
+    };
+  }
+
+  // ---------- erase/write bounds (protects calibration pages) ----------
+  function computeErasePlan() {
+    if (!firmwareBuffer) return null;
+    const neededPages = Math.ceil(firmwareBuffer.byteLength / PAGE_SIZE);
+    const lastPage = neededPages - 1;
+    return {
+      pageSize: PAGE_SIZE,
+      reservedPage: RESERVED_PAGE,
+      neededPages,
+      lastPage,
+      withinBounds: neededPages <= RESERVED_PAGE,
+    };
+  }
+
+  function updateEraseInfo() {
+    const plan = computeErasePlan();
+    if (!plan) { els.eraseInfo.classList.add('hidden'); updateFlashButton(); return; }
+    els.eraseInfo.classList.remove('hidden');
+    if (plan.withinBounds) {
+      els.eraseInfo.style.color = '';
+      els.eraseInfo.textContent =
+        `Erase plan: pages 0–${plan.lastPage} (${plan.neededPages} × ${plan.pageSize}B). ` +
+        `Reserved region starts at page ${plan.reservedPage} — left untouched.`;
+    } else {
+      els.eraseInfo.style.color = 'var(--bad)';
+      els.eraseInfo.textContent =
+        `⚠ Firmware needs ${plan.neededPages} pages (0–${plan.lastPage}), reaching into the reserved ` +
+        `calibration region at page ${plan.reservedPage}. Flashing is blocked to protect that data.`;
+    }
+    updateFlashButton();
+  }
+
+  function loadFirmware(buffer, label) {
+    const suffix = parseDfuSuffix(buffer);
+    firmwareSuffix = suffix;
+    firmwareBuffer = suffix ? buffer.slice(0, buffer.byteLength - 16) : buffer;
+    firmwareLabel = label;
+    let info = `${label} — ${(buffer.byteLength/1024).toFixed(1)} KB`;
+    if (suffix) {
+      info += ` · suffix VID:PID ${suffix.idVendor.toString(16).padStart(4,'0')}:${suffix.idProduct.toString(16).padStart(4,'0')}`;
+    } else {
+      info += ' · no DFU suffix found (raw binary)';
+    }
+    els.fileInfo.textContent = info;
+    els.fileInfo.classList.remove('hidden');
+    log(`Loaded firmware: ${info}`, 'ok');
+    updateEraseInfo();
+  }
+
+  // ---------- static release manifest (releases.json, generated by scripts/generate-manifest.py) ----------
+  async function loadReleaseList() {
+    els.releasesStatus.textContent = 'Loading…';
+    els.assetList.innerHTML = '';
+    try {
+      const res = await fetch('./releases.json', { cache: 'no-store' });
+      if (!res.ok) throw new Error(`Manifest returned ${res.status}`);
+      const releases = await res.json();
+      if (releases.length === 0) {
+        els.releasesStatus.textContent = 'No releases published yet.';
+        return;
+      }
+      els.releasesStatus.textContent = `${releases.length} release(s) available.`;
+      releases.forEach(r => {
+        const div = document.createElement('div');
+        div.className = 'asset';
+        const date = r.mtime ? new Date(r.mtime).toLocaleDateString() : '';
+        div.innerHTML = `<span class="name">${r.name}</span><span class="size">${(r.size/1024).toFixed(1)} KB · ${date}</span>`;
+        div.addEventListener('click', async () => {
+          [...els.assetList.children].forEach(c => c.classList.remove('selected'));
+          div.classList.add('selected');
+          try {
+            log(`Downloading ${r.name}…`);
+            const fRes = await fetch(`./releases/${encodeURIComponent(r.name)}`);
+            if (!fRes.ok) throw new Error(`Download failed: ${fRes.status}`);
+            const buf = await fRes.arrayBuffer();
+            loadFirmware(buf, r.name);
+          } catch (e) {
+            log(`Could not load release: ${e.message}`, 'err');
+          }
+        });
+        els.assetList.appendChild(div);
+      });
+    } catch (e) {
+      els.releasesStatus.textContent = `Could not load release manifest: ${e.message}`;
+      log(`Release list unavailable: ${e.message}. Use the manual upload option instead.`, 'warn');
+    }
+  }
+  els.btnRefreshReleases.addEventListener('click', loadReleaseList);
+  if ('usb' in navigator) loadReleaseList();
+
+  // ---------- manual file ----------
+  els.manualFile.addEventListener('change', async () => {
+    const file = els.manualFile.files[0];
+    if (!file) return;
+    const buf = await file.arrayBuffer();
+    loadFirmware(buf, file.name);
+  });
+
+  // ---------- DFU / DfuSe protocol over WebUSB ----------
+  const DFU_DNLOAD = 0x01, DFU_GETSTATUS = 0x03, DFU_CLRSTATUS = 0x04;
+  const STATE_DFU_DNBUSY = 4, STATE_DFU_ERROR = 10;
+
+  class DfuDevice {
+    constructor(device, interfaceNumber, altSetting) {
+      this.device = device;
+      this.interfaceNumber = interfaceNumber;
+      this.altSetting = altSetting;
+      this.transferSize = 2048;
+    }
+
+    async init() {
+      await this.device.open();
+      if (this.device.configuration === null) await this.device.selectConfiguration(1);
+      await this.device.claimInterface(this.interfaceNumber);
+      if (this.altSetting !== undefined) {
+        try { await this.device.selectAlternateInterface(this.interfaceNumber, this.altSetting); } catch (_) {}
+      }
+      this.transferSize = await this._readTransferSize();
+      const status = await this.getStatus();
+      if (status.bState === STATE_DFU_ERROR) await this.clearStatus();
+    }
+
+    async _readTransferSize() {
+      try {
+        let r = await this.device.controlTransferIn(
+          { requestType: 'standard', recipient: 'device', request: 0x06, value: (0x02 << 8) | 0, index: 0 }, 9);
+        const head = new DataView(r.data.buffer);
+        const totalLength = head.getUint16(2, true);
+        r = await this.device.controlTransferIn(
+          { requestType: 'standard', recipient: 'device', request: 0x06, value: (0x02 << 8) | 0, index: 0 }, totalLength);
+        const data = new Uint8Array(r.data.buffer);
+        let offset = 0;
+        while (offset < data.length) {
+          const bLength = data[offset], bType = data[offset + 1];
+          if (bType === 0x21 && bLength >= 9) {
+            return new DataView(data.buffer, offset, bLength).getUint16(5, true) || 2048;
+          }
+          offset += bLength || 1;
+        }
+      } catch (_) {}
+      return 2048;
+    }
+
+    async getStatus() {
+      const r = await this.device.controlTransferIn(
+        { requestType: 'class', recipient: 'interface', request: DFU_GETSTATUS, value: 0, index: this.interfaceNumber }, 6);
+      const d = new DataView(r.data.buffer);
+      return {
+        bStatus: d.getUint8(0),
+        bwPollTimeout: d.getUint8(1) | (d.getUint8(2) << 8) | (d.getUint8(3) << 16),
+        bState: d.getUint8(4),
+      };
+    }
+    async clearStatus() {
+      await this.device.controlTransferOut(
+        { requestType: 'class', recipient: 'interface', request: DFU_CLRSTATUS, value: 0, index: this.interfaceNumber });
+    }
+    async _dnload(blockNum, data) {
+      await this.device.controlTransferOut(
+        { requestType: 'class', recipient: 'interface', request: DFU_DNLOAD, value: blockNum, index: this.interfaceNumber },
+        data);
+      let status = await this.getStatus();
+      while (status.bState === STATE_DFU_DNBUSY) {
+        await sleep(Math.max(status.bwPollTimeout, 5));
+        status = await this.getStatus();
+      }
+      if (status.bState === STATE_DFU_ERROR) {
+        throw new Error(`Device reported DFU error (status ${status.bStatus}) after block ${blockNum}.`);
+      }
+      return status;
+    }
+
+    async setAddressPointer(addr) {
+      const buf = new Uint8Array(5);
+      buf[0] = 0x21;
+      new DataView(buf.buffer).setUint32(1, addr, true);
+      await this._dnload(0, buf);
+    }
+    async erasePage(pageAddr) {
+      const buf = new Uint8Array(5);
+      buf[0] = 0x41;
+      new DataView(buf.buffer).setUint32(1, pageAddr, true);
+      await this._dnload(0, buf);
+    }
+    async writeChunk(blockNum, chunk) {
+      await this._dnload(blockNum, chunk);
+    }
+    async leave() {
+      await this.device.controlTransferOut(
+        { requestType: 'class', recipient: 'interface', request: DFU_DNLOAD, value: 0, index: this.interfaceNumber });
+      try {
+        return await this.getStatus();
+      } catch (e) {
+        return null; // device likely reset/disconnected already
+      }
+    }
+    async close() {
+      try { await this.device.close(); } catch (_) {}
+    }
+  }
+
+  function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+  // ---------- device connect ----------
+  els.btnConnect.addEventListener('click', async () => {
+    try {
+      const device = await navigator.usb.requestDevice({ filters: [{ vendorId: VID, productId: PID }] });
+
+      let interfaceNumber = 0, altSetting = 0;
+      const cfg = device.configurations[0];
+      outer:
+      for (const iface of cfg.interfaces) {
+        for (const alt of iface.alternates) {
+          if (alt.interfaceClass === 0xFE && alt.interfaceSubclass === 0x01) {
+            interfaceNumber = iface.interfaceNumber;
+            altSetting = alt.alternateSetting;
+            break outer;
+          }
+        }
+      }
+
+      dfu = new DfuDevice(device, interfaceNumber, altSetting);
+      await dfu.init();
+
+      els.devPill.textContent = 'connected';
+      els.devPill.className = 'pill ok';
+      els.devDetail.textContent = `VID:PID ${VID.toString(16).padStart(4,'0')}:${PID.toString(16).padStart(4,'0')} · interface ${interfaceNumber} · transfer size ${dfu.transferSize}B`;
+      els.btnConnect.disabled = true;
+      els.btnDisconnect.disabled = false;
+      log('Device connected and DFU interface claimed.', 'ok');
+      updateFlashButton();
+    } catch (e) {
+      log(`Connection failed: ${e.message}`, 'err');
+    }
+  });
+
+  els.btnDisconnect.addEventListener('click', async () => {
+    if (dfu) await dfu.close();
+    dfu = null;
+    els.devPill.textContent = 'not connected';
+    els.devPill.className = 'pill neutral';
+    els.devDetail.textContent = '';
+    els.btnConnect.disabled = false;
+    els.btnDisconnect.disabled = true;
+    updateFlashButton();
+    log('Disconnected.');
+  });
+
+  function updateFlashButton() {
+    const plan = computeErasePlan();
+    els.btnFlash.disabled = !(dfu && firmwareBuffer && plan && plan.withinBounds);
+  }
+
+  // ---------- flashing ----------
+  els.btnFlash.addEventListener('click', async () => {
+    if (!dfu || !firmwareBuffer) return;
+
+    const plan = computeErasePlan();
+    if (!plan || !plan.withinBounds) {
+      log('Flash blocked: firmware image would overwrite the reserved calibration region.', 'err');
+      return;
+    }
+
+    if (firmwareSuffix && (firmwareSuffix.idVendor !== VID || firmwareSuffix.idProduct !== PID)) {
+      log(
+        `Flash blocked: file's DFU suffix reports VID:PID ${firmwareSuffix.idVendor.toString(16)}:` +
+        `${firmwareSuffix.idProduct.toString(16)}, which doesn't match this device (` +
+        `${VID.toString(16)}:${PID.toString(16)}).`, 'err');
+      return;
+    }
+
+    els.btnFlash.disabled = true;
+    els.btnConnect.disabled = true;
+    setProgress(0);
+    try {
+      const addr = FLASH_ADDR;
+
+      log(`Erasing pages 0–${plan.lastPage} (${plan.neededPages} × ${plan.pageSize}B), reserved region at page ${plan.reservedPage} left untouched…`);
+      for (let p = 0; p <= plan.lastPage; p++) {
+        await dfu.erasePage(addr + p * plan.pageSize);
+        if (p % 8 === 0 || p === plan.lastPage) log(`  erased page ${p}/${plan.lastPage}`);
+      }
+      log('Erase complete.', 'ok');
+
+      log(`Setting address pointer to 0x${addr.toString(16)}…`);
+      await dfu.setAddressPointer(addr);
+
+      const data = new Uint8Array(firmwareBuffer);
+      const chunkSize = dfu.transferSize;
+      const totalChunks = Math.ceil(data.length / chunkSize);
+      log(`Writing ${data.length} bytes in ${totalChunks} block(s) of ${chunkSize}B…`);
+
+      for (let i = 0; i < totalChunks; i++) {
+        const start = i * chunkSize;
+        const chunk = data.subarray(start, Math.min(start + chunkSize, data.length));
+        await dfu.writeChunk(i + 2, chunk); // block numbers start at 2 for data (0/1 reserved for commands)
+        setProgress(((i + 1) / totalChunks) * 100);
+        if (i % 8 === 0 || i === totalChunks - 1) log(`  block ${i + 1}/${totalChunks}`);
+      }
+
+      log('Write complete. Leaving DFU mode…', 'ok');
+      await dfu.setAddressPointer(addr);
+      await dfu.leave();
+      log('Device should now be resetting into the application. Update finished.', 'ok');
+      setProgress(100);
+    } catch (e) {
+      log(`Flash failed: ${e.message}`, 'err');
+    } finally {
+      els.btnFlash.disabled = false;
+      els.btnConnect.disabled = dfu ? true : false;
+    }
+  });
+})();
+</script>
+</body>
+</html>
