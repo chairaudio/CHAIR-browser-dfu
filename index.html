@@ -184,7 +184,9 @@
     <details style="margin-top:14px;">
       <summary>…or upload a .bin file</summary>
       <div class="row" style="margin-top:10px;">
-        <input type="file" id="manualFile" accept=".bin,.dfu">
+        <button id="btnChooseFile" class="secondary" type="button">Choose file…</button>
+        <button id="btnReloadFile" class="secondary hidden" type="button">Reload from disk</button>
+        <input type="file" id="manualFile" accept=".bin,.dfu" class="hidden">
       </div>
     </details>
 
@@ -226,7 +228,8 @@
     unsupported: $('unsupported'),
     btnRefreshReleases: $('btnRefreshReleases'), releasesStatus: $('releasesStatus'),
     assetList: $('assetList'),
-    manualFile: $('manualFile'), fileInfo: $('fileInfo'), eraseInfo: $('eraseInfo'),
+    manualFile: $('manualFile'), btnChooseFile: $('btnChooseFile'), btnReloadFile: $('btnReloadFile'),
+    fileInfo: $('fileInfo'), eraseInfo: $('eraseInfo'),
     devPill: $('devPill'), devDetail: $('devDetail'),
     btnConnect: $('btnConnect'), btnDisconnect: $('btnDisconnect'),
     btnFlash: $('btnFlash'),
@@ -369,12 +372,51 @@
   if ('usb' in navigator) loadReleaseList();
 
   // ---------- manual file ----------
-  els.manualFile.addEventListener('change', async () => {
-    const file = els.manualFile.files[0];
-    if (!file) return;
+  // File System Access API (Chrome/Edge — same requirement as WebUSB) keeps a handle to the
+  // picked file, so "Reload from disk" can re-read it after a rebuild without reopening the
+  // OS file dialog at all. Falls back to a plain <input type=file> where the API is unavailable.
+  let manualFileHandle = null;
+
+  async function loadFromHandle(handle) {
+    const file = await handle.getFile();
     const buf = await file.arrayBuffer();
     loadFirmware(buf, file.name);
-  });
+  }
+
+  if ('showOpenFilePicker' in window) {
+    els.btnChooseFile.addEventListener('click', async () => {
+      try {
+        const [handle] = await window.showOpenFilePicker({
+          types: [{ description: 'Firmware', accept: { 'application/octet-stream': ['.bin', '.dfu'] } }],
+        });
+        manualFileHandle = handle;
+        els.btnReloadFile.classList.remove('hidden');
+        await loadFromHandle(handle);
+      } catch (err) {
+        if (err.name !== 'AbortError') log(`File selection failed: ${err.message}`, 'err');
+      }
+    });
+    els.btnReloadFile.addEventListener('click', async () => {
+      if (!manualFileHandle) return;
+      try {
+        await loadFromHandle(manualFileHandle);
+        log('Reloaded firmware from disk.', 'ok');
+      } catch (err) {
+        log(`Reload failed: ${err.message} — the file may have moved, choose it again.`, 'err');
+        manualFileHandle = null;
+        els.btnReloadFile.classList.add('hidden');
+      }
+    });
+  } else {
+    els.btnChooseFile.addEventListener('click', () => els.manualFile.click());
+    els.manualFile.addEventListener('change', async () => {
+      const file = els.manualFile.files[0];
+      if (!file) return;
+      const buf = await file.arrayBuffer();
+      els.manualFile.value = '';
+      loadFirmware(buf, file.name);
+    });
+  }
 
   // ---------- DFU / DfuSe protocol over WebUSB ----------
   const DFU_DNLOAD = 0x01, DFU_GETSTATUS = 0x03, DFU_CLRSTATUS = 0x04;
