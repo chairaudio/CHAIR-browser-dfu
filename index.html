@@ -202,6 +202,7 @@
     </div>
     <div class="row">
       <button id="btnConnect">Connect device</button>
+      <button id="btnReconnect" class="secondary hidden">Reconnect</button>
       <button id="btnDisconnect" class="secondary" disabled>Disconnect</button>
     </div>
   </div>
@@ -231,7 +232,7 @@
     manualFile: $('manualFile'), btnChooseFile: $('btnChooseFile'), btnReloadFile: $('btnReloadFile'),
     fileInfo: $('fileInfo'), eraseInfo: $('eraseInfo'),
     devPill: $('devPill'), devDetail: $('devDetail'),
-    btnConnect: $('btnConnect'), btnDisconnect: $('btnDisconnect'),
+    btnConnect: $('btnConnect'), btnReconnect: $('btnReconnect'), btnDisconnect: $('btnDisconnect'),
     btnFlash: $('btnFlash'),
     progressBar: $('progressBar'), log: $('log'),
   };
@@ -263,7 +264,16 @@
   // ---------- feature detection ----------
   if (!('usb' in navigator)) {
     els.unsupported.classList.remove('hidden');
-    [els.btnConnect, els.btnRefreshReleases].forEach(b => b.disabled = true);
+    [els.btnConnect, els.btnReconnect, els.btnRefreshReleases].forEach(b => b.disabled = true);
+  } else {
+    // WebUSB permission grants persist across reloads, so if this origin was already
+    // authorized for the device (e.g. earlier in this session), surface Reconnect right
+    // away instead of only after the next successful Connect.
+    navigator.usb.getDevices().then(devices => {
+      if (devices.some(d => d.vendorId === VID && d.productId === PID)) {
+        els.btnReconnect.classList.remove('hidden');
+      }
+    });
   }
 
   // ---------- DFU suffix parsing (16-byte trailer added by dfu-util's dfu-suffix) ----------
@@ -524,35 +534,57 @@
   function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
   // ---------- device connect ----------
+  async function attachDevice(device) {
+    let interfaceNumber = 0, altSetting = 0;
+    const cfg = device.configurations[0];
+    outer:
+    for (const iface of cfg.interfaces) {
+      for (const alt of iface.alternates) {
+        if (alt.interfaceClass === 0xFE && alt.interfaceSubclass === 0x01) {
+          interfaceNumber = iface.interfaceNumber;
+          altSetting = alt.alternateSetting;
+          break outer;
+        }
+      }
+    }
+
+    dfu = new DfuDevice(device, interfaceNumber, altSetting);
+    await dfu.init();
+
+    els.devPill.textContent = 'connected';
+    els.devPill.className = 'pill ok';
+    els.devDetail.textContent = `VID:PID ${VID.toString(16).padStart(4,'0')}:${PID.toString(16).padStart(4,'0')} · interface ${interfaceNumber} · transfer size ${dfu.transferSize}B`;
+    els.btnReconnect.classList.remove('hidden');
+    els.btnConnect.disabled = true;
+    els.btnReconnect.disabled = true;
+    els.btnDisconnect.disabled = false;
+    log('Device connected and DFU interface claimed.', 'ok');
+    updateFlashButton();
+  }
+
   els.btnConnect.addEventListener('click', async () => {
     try {
       const device = await navigator.usb.requestDevice({ filters: [{ vendorId: VID, productId: PID }] });
-
-      let interfaceNumber = 0, altSetting = 0;
-      const cfg = device.configurations[0];
-      outer:
-      for (const iface of cfg.interfaces) {
-        for (const alt of iface.alternates) {
-          if (alt.interfaceClass === 0xFE && alt.interfaceSubclass === 0x01) {
-            interfaceNumber = iface.interfaceNumber;
-            altSetting = alt.alternateSetting;
-            break outer;
-          }
-        }
-      }
-
-      dfu = new DfuDevice(device, interfaceNumber, altSetting);
-      await dfu.init();
-
-      els.devPill.textContent = 'connected';
-      els.devPill.className = 'pill ok';
-      els.devDetail.textContent = `VID:PID ${VID.toString(16).padStart(4,'0')}:${PID.toString(16).padStart(4,'0')} · interface ${interfaceNumber} · transfer size ${dfu.transferSize}B`;
-      els.btnConnect.disabled = true;
-      els.btnDisconnect.disabled = false;
-      log('Device connected and DFU interface claimed.', 'ok');
-      updateFlashButton();
+      await attachDevice(device);
     } catch (e) {
       log(`Connection failed: ${e.message}`, 'err');
+    }
+  });
+
+  // Reattaches to a device the browser already granted permission for, without showing
+  // the OS/browser device picker again — handy when iterating (reset device into DFU
+  // mode, reconnect, reflash) without re-choosing it from the picker every time.
+  els.btnReconnect.addEventListener('click', async () => {
+    try {
+      const devices = await navigator.usb.getDevices();
+      const device = devices.find(d => d.vendorId === VID && d.productId === PID);
+      if (!device) {
+        log('No previously authorized device found in DFU mode — use "Connect device" first.', 'warn');
+        return;
+      }
+      await attachDevice(device);
+    } catch (e) {
+      log(`Reconnect failed: ${e.message}`, 'err');
     }
   });
 
@@ -563,6 +595,7 @@
     els.devPill.className = 'pill neutral';
     els.devDetail.textContent = '';
     els.btnConnect.disabled = false;
+    els.btnReconnect.disabled = false;
     els.btnDisconnect.disabled = true;
     updateFlashButton();
     log('Disconnected.');
@@ -593,6 +626,7 @@
 
     els.btnFlash.disabled = true;
     els.btnConnect.disabled = true;
+    els.btnReconnect.disabled = true;
     setProgress(0);
     try {
       const addr = FLASH_ADDR;
@@ -625,11 +659,20 @@
       await dfu.leave();
       log('Device should now be resetting into the application. Update finished.', 'ok');
       setProgress(100);
+      // The device just reset out of DFU mode — this WebUSB session is no longer usable,
+      // so drop it and flip the UI back to "not connected" (re-entering DFU mode and
+      // reconnecting is a fresh session either way).
+      dfu = null;
+      els.devPill.textContent = 'not connected';
+      els.devPill.className = 'pill neutral';
+      els.devDetail.textContent = '';
     } catch (e) {
       log(`Flash failed: ${e.message}`, 'err');
     } finally {
-      els.btnFlash.disabled = false;
       els.btnConnect.disabled = dfu ? true : false;
+      els.btnReconnect.disabled = dfu ? true : false;
+      els.btnDisconnect.disabled = dfu ? false : true;
+      updateFlashButton();
     }
   });
 })();
